@@ -9,7 +9,7 @@ import java.time.ZoneId;
 import java.util.List;
 
 @JsonIgnoreProperties( ignoreUnknown = true )
-public class RedditData {
+public class RedditMessagesData {
 
     @JsonProperty( "data" )
     private Data data;
@@ -100,9 +100,8 @@ public class RedditData {
         Instant instant = Instant.ofEpochMilli( milliseconds );
 
         // Convert the Instant to LocalDate
-        LocalDate date = instant.atZone( ZoneId.systemDefault() )
+        return  instant.atZone( ZoneId.systemDefault() )
                                 .toLocalDate();
 
-        return date;
     }
 }
