@@ -3,6 +3,9 @@ package functions;
 import com.google.cloud.functions.HttpFunction;
 import com.google.cloud.functions.HttpRequest;
 import com.google.cloud.functions.HttpResponse;
+import functions.dto.RedditAboutData;
+import functions.dto.RedditMessagesData;
+import functions.dto.RedditToken;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
