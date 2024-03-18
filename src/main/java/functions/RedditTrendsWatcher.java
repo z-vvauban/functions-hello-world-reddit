@@ -44,7 +44,7 @@ public class RedditTrendsWatcher implements HttpFunction {
         Map<String, String> formData = new HashMap<>();
         formData.put( "grant_type", "password" );
         formData.put( "username", "Zreddit59" );
-        formData.put( "password", "codeTheWorld" );
+        formData.put( "password", "askVV" );
 
         return sendHttpRequest( TOKEN_URL, tokenHeaders, formData, RedditToken.class, "POST" );
     }
