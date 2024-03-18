@@ -5,47 +5,67 @@ import com.google.cloud.functions.HttpFunction;
 import com.google.cloud.functions.HttpRequest;
 import com.google.cloud.functions.HttpResponse;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class HelloWorld implements HttpFunction {
 
-    String token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IlNIQTI1NjpzS3dsMnlsV0VtMjVmcXhwTU40cWY4MXE2OWFFdWFyMnpLMUdhVGxjdWNZIiwidHlwIjoiSldUIn0.eyJzdWIiOiJ1c2VyIiwiZXhwIjoxNzEwNTE1MjE3Ljc5NDkxMiwiaWF0IjoxNzEwNDI4ODE3Ljc5NDkxMiwianRpIjoiVHhPbEg0TFYwcG5LSjRIVHRJVGxiczdRV2JFdXN3IiwiY2lkIjoiX2RUZmFfTnlWbVgxOXlTTUtKYjBNQSIsImxpZCI6InQyX3czNWNlOWQxbiIsImFpZCI6InQyX3czNWNlOWQxbiIsImxjYSI6MTcxMDMxOTQzMjU3Nywic2NwIjoiZUp5S1Z0SlNpZ1VFQUFEX193TnpBU2MiLCJmbG8iOjl9.pNbpbPBf-sNyFIj6t0osNyvhd4kU_B7ZkUXEaooP8HICQz2BbvFujD_Q4BuNo-jPUqqfN5GgDttGwAM13F7D0NEAMrzfyb1zyyo2C9ro4z9cYQ1V0xfKz909LuVNRGqYpMZZyb0iO5p0XfisFODMDUdfBAn0k5bl0f9bdqOAeVrmwenBFfV7qB5Xm51pyMbIV1eHMCQF04hck95MYqfy20AIzL7EKkE-fopCf7b9sVSsALqiw4deneGSz38BgWvnuPyNe7faCLTyagsUi9Q4CO2jkxeKdfOrfXiEFCSf1_ty6G1sD7sZWnL2lgtOGsPjxt7HJ5Yly84ztzCzhIeoAg";
+    List<String> topics = List.of( "java", "javascript", "Python", "csharp" );
 
     // Simple function to return "Hello World"
     @Override
     public void service( HttpRequest request, HttpResponse response )
             throws IOException {
         try {
-            String messagesUrl = "https://oauth.reddit.com/r/java/new?limit=100";
-            String aboutUrl = "https://oauth.reddit.com/r/java/about";
-            Map<String, String> headers = Map.of(
-                    "User-Agent", "ChangeMeClient/0.1 by YourUsername",
-                    "Authorization",
-                    "bearer " + token
-                                                );
+            String tokenUrl = "https://www.reddit.com/api/v1/access_token";
+            Map<String, String> tokenHeaders = new HashMap<>();
+            tokenHeaders.put( "Content-Type", "application/x-www-form-urlencoded" );
+            tokenHeaders.put( "Authorization", "Basic X19kY0xESHZyM1Rkb2VxSkh6UWpuUTpTTVpZaTVSUHF4QWVlMDRKNEhKcGZyRGRfUUhxNEE=" );
 
-            RedditMessagesData vvResponse = sendMessagesGetRequest( messagesUrl, headers, RedditMessagesData.class );
-            final String count = "" + vvResponse.getData()
-                                                .getChildren()
-                                                .stream()
-                                                .map( RedditMessagesData.Child::getData )
-                                                .filter( data -> data.getCreated()
-                                                                     .isAfter( LocalDate.now()
-                                                                                        .minusWeeks( 1 ) ) )
-                                                .map( Object::toString )
-                                                .count();
-            RedditAboutData redditAboutData = sendAboutGetRequest( aboutUrl, headers, RedditAboutData.class );
-            final String subscribers = "" + redditAboutData.getData()
-                                                           .getSubscribers();
+            Map<String, String> formData = new HashMap<>();
+            formData.put( "grant_type", "password" );
+            formData.put( "username", "Zreddit59" );
+            formData.put( "password", "codeTheWorld" );
+
+            // Call the method with the URL and the maps
+            RedditToken redditToken = sendHttpRequest( "https://www.reddit.com/api/v1/access_token", tokenHeaders, formData, RedditToken.class,
+                                                       "POST" );
+
+
+            String output = "";
+
+            for ( String topic : topics ) {
+                String messagesUrl = "https://oauth.reddit.com/r/" + topic + "/new?limit=100";
+
+                String aboutUrl = "https://oauth.reddit.com/r/" + topic + "/about";
+
+                Map<String, String> headers = Map.of(
+                        "User-Agent", "ChangeMeClient/0.1 by YourUsername",
+                        "Authorization",
+                        "bearer " + redditToken.getToken() );
+                RedditMessagesData messageResponse = sendHttpRequest( messagesUrl, headers, null, RedditMessagesData.class, "GET" );
+                final String messagesCount = "" + messageResponse.getData()
+                                                                 .getChildren()
+                                                                 .stream()
+                                                                 .map( RedditMessagesData.Child::getData )
+                                                                 .filter( data -> data.getCreated()
+                                                                                      .isAfter( LocalDate.now()
+                                                                                                         .minusWeeks( 1 ) ) )
+                                                                 .count();
+                RedditAboutData aboutResponse = sendHttpRequest( aboutUrl, headers, null, RedditAboutData.class, "GET" );
+                final String subscribersCount = "" + aboutResponse.getData()
+                                                                  .getSubscribers();
+                output = output + " | " + topic + " messages=[" + messagesCount + "] subscribers=[" + subscribersCount + "]\n";
+            }
+
             BufferedWriter writer = response.getWriter();
-            writer.write( "messages count:[" + count + "], subscribers count:[" + subscribers + "]" );
+            writer.write( output );
 
         } catch ( Exception e ) {
             e.printStackTrace();
@@ -53,20 +73,38 @@ public class HelloWorld implements HttpFunction {
 
     }
 
-
-    public RedditMessagesData sendMessagesGetRequest( String urlString, Map<String, String> headers, Class<RedditMessagesData> clazz ) throws
-                                                                                                                                       IOException {
+    public <T> T sendHttpRequest( String urlString, Map<String, String> headers, Map<String, String> formData, Class<T> clazz, String requestMethod ) throws
+                                                                                                                                                      IOException {
         StringBuilder result = new StringBuilder();
         URL url = new URL( urlString );
         HttpURLConnection conn = ( HttpURLConnection ) url.openConnection();
-        conn.setRequestMethod( "GET" );
+        conn.setRequestMethod( requestMethod );
 
         // Set headers
         for ( Map.Entry<String, String> entry : headers.entrySet() ) {
             conn.setRequestProperty( entry.getKey(), entry.getValue() );
         }
 
-        RedditMessagesData vvResponse;
+        // If the request method is POST, handle form data
+        if ( "POST".equals( requestMethod ) ) {
+            conn.setDoOutput( true ); // Needed to send the request body
+            StringBuilder postData = new StringBuilder();
+            for ( Map.Entry<String, String> entry : formData.entrySet() ) {
+                if ( postData.length() != 0 ) {
+                    postData.append( '&' );
+                }
+                postData.append( URLEncoder.encode( entry.getKey(), "UTF-8" ) );
+                postData.append( '=' );
+                postData.append( URLEncoder.encode( entry.getValue(), "UTF-8" ) );
+            }
+            // Send form data
+            try ( DataOutputStream wr = new DataOutputStream( conn.getOutputStream() ) ) {
+                wr.writeBytes( postData.toString() );
+            }
+        }
+
+        T response;
+        // Read the response
         try ( BufferedReader reader = new BufferedReader( new InputStreamReader( conn.getInputStream() ) ) ) {
             String line;
             while ( (line = reader.readLine()) != null ) {
@@ -74,38 +112,11 @@ public class HelloWorld implements HttpFunction {
             }
         }
 
-        // Deserialize JSON response to RedditData object
+        // Deserialize JSON response to the specified class object
         ObjectMapper mapper = new ObjectMapper();
-        vvResponse = mapper.readValue( result.toString(), clazz );
+        response = mapper.readValue( result.toString(), clazz );
 
-        return vvResponse;
+        return response;
     }
-
-    public RedditAboutData sendAboutGetRequest( String urlString, Map<String, String> headers, Class<RedditAboutData> clazz ) throws IOException {
-        StringBuilder result = new StringBuilder();
-        URL url = new URL( urlString );
-        HttpURLConnection conn = ( HttpURLConnection ) url.openConnection();
-        conn.setRequestMethod( "GET" );
-
-        // Set headers
-        for ( Map.Entry<String, String> entry : headers.entrySet() ) {
-            conn.setRequestProperty( entry.getKey(), entry.getValue() );
-        }
-
-        RedditAboutData vvResponse;
-        try ( BufferedReader reader = new BufferedReader( new InputStreamReader( conn.getInputStream() ) ) ) {
-            String line;
-            while ( (line = reader.readLine()) != null ) {
-                result.append( line );
-            }
-        }
-
-        // Deserialize JSON response to RedditData object
-        ObjectMapper mapper = new ObjectMapper();
-        vvResponse = mapper.readValue( result.toString(), clazz );
-
-        return vvResponse;
-    }
-
 
 }
